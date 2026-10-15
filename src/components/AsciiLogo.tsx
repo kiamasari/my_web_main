@@ -75,7 +75,7 @@ export function AsciiLogo({ text, period = 5.6, className }: Props) {
 
     function layout() {
       const bw = box.clientWidth, bh = box.clientHeight;
-      const charPx = Math.max(4.5, Math.min(11, bw / 95));
+      const charPx = Math.max(5, Math.min(12, bw / 90));
       out.style.fontSize = charPx + "px";
       out.style.lineHeight = String(LINE);
       const probe = document.createElement("span");
@@ -144,9 +144,14 @@ export function AsciiLogo({ text, period = 5.6, className }: Props) {
 
     const angleAt = (t: number) => ((t - 2.63) / period) * Math.PI * 2;
 
+    // 30 кадров в секунду достаточно для ASCII и вдвое дешевле
+    let lastDraw = 0;
     function tick(now: number) {
       if (!start) start = now;
-      render(angleAt((now - start) / 1000));
+      if (now - lastDraw >= 33) {
+        lastDraw = now;
+        render(angleAt((now - start) / 1000));
+      }
       raf = visible ? requestAnimationFrame(tick) : 0;
     }
 
@@ -167,7 +172,7 @@ export function AsciiLogo({ text, period = 5.6, className }: Props) {
     ro.observe(box);
 
     const io = new IntersectionObserver(([e]) => {
-      visible = e.isIntersecting;
+      visible = e.isIntersecting && !document.hidden;
       if (visible && !raf && !reduced && MW) raf = requestAnimationFrame(tick);
     });
     io.observe(box);

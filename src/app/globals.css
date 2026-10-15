@@ -54,6 +54,14 @@ html {
   }
 }
 
+/* курсор-звёздочка — как вспышки в айдентике */
+body {
+  cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'%3E%3Cpath fill='%23F2EBC3' stroke='%230E5E86' stroke-width='1.2' d='M12 1c.5 5.4 2.2 8.5 10.5 11-8.3 2.5-10 5.6-10.5 11-.5-5.4-2.2-8.5-10.5-11C9.8 9.5 11.5 6.4 12 1Z'/%3E%3C/svg%3E") 12 12, auto;
+}
+a,
+button {
+  cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='32' height='32' viewBox='0 0 24 24'%3E%3Cpath fill='%23F2EBC3' stroke='%230E5E86' stroke-width='1' d='M12 1c.5 5.4 2.2 8.5 10.5 11-8.3 2.5-10 5.6-10.5 11-.5-5.4-2.2-8.5-10.5-11C9.8 9.5 11.5 6.4 12 1Z'/%3E%3C/svg%3E") 16 16, pointer;
+}
 body {
   margin: 0;
   background: var(--bg);
@@ -96,32 +104,40 @@ a {
   top: 0;
   height: 100svh;
   overflow: hidden;
-  background: var(--hero-bg);
-  --p: 0; /* прогресс скролла 0…1 (ставится из JS) */
-  --t: 0; /* прогресс перекраски текста 0…1 */
+  --bgk: 0; /* 0 — светлый фон, 1 — цвет бренда */
+  --t: 0; /* 0 — тёмный текст, 1 — белый */
+  background: color-mix(in oklab, var(--hero-bg) calc((1 - var(--bgk)) * 100%), var(--bg));
 }
 .hero__waves {
   position: absolute;
   inset: 0;
   z-index: 0;
   pointer-events: none;
+  contain: strict;
 }
+/* «Волна» — эллипс с мягким краем. Мягкость зашита в radial-gradient,
+   поэтому не нужен filter: blur — анимируется только transform (дёшево для GPU). */
 .hero__wave {
   position: absolute;
-  left: -8vw;
-  width: 116vw;
-  height: 160svh;
   top: 0;
-  border-radius: 50%;
+  left: -15vw;
+  width: 130vw;
+  height: 140svh;
   will-change: transform;
-  filter: blur(var(--blur, 0px));
+  background: radial-gradient(
+    closest-side,
+    var(--c) 0%,
+    var(--c) 70%,
+    color-mix(in oklab, var(--c) 55%, transparent) 84%,
+    transparent 100%
+  );
 }
 .hero__text {
   position: absolute;
   inset-inline: 0;
   top: clamp(72px, 12svh, 120px);
   margin-inline: auto;
-  max-width: var(--container);
+  max-width: 1200px;
   padding-inline: var(--gutter);
   color: color-mix(in oklab, var(--ink) calc((1 - var(--t)) * 100%), #fff);
   z-index: 2;
@@ -129,14 +145,14 @@ a {
 .hero__title {
   margin: 0;
   font-weight: 700;
-  font-size: clamp(56px, 9vw, 128px);
+  font-size: clamp(52px, 6.7vw, 96px);
   line-height: 0.9;
   letter-spacing: -0.02em;
 }
 .hero__subtitle {
   margin: 24px 0 0;
   max-width: 640px;
-  font-size: clamp(18px, 1.8vw, 24px);
+  font-size: clamp(17px, 1.7vw, 24px);
   line-height: 1.4;
   font-weight: 540;
   text-wrap: pretty;
@@ -154,99 +170,72 @@ a {
   line-height: 1;
   padding: 8px 14px;
   border-radius: 999px;
-  border: 1px solid color-mix(in oklab, currentColor 30%, transparent);
+  border: 1px solid color-mix(in oklab, currentColor 35%, transparent);
   font-weight: 540;
+}
+/* Карточка-обложка: элемент размером с экран, видимый размер задаётся scale(x, y) из JS */
+.hero__card-wrap {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  pointer-events: none;
 }
 .hero__card {
   position: absolute;
   inset: 0;
-  z-index: 3;
+  overflow: hidden;
   transform-origin: 50% 0;
   will-change: transform;
+  background: var(--bg);
+  /* стартовое положение до гидрации — совпадает с первым кадром JS */
+  transform: translate3d(0, 62svh, 0) scale(0.76, 0.43);
+  border-radius: 29px / 51px;
 }
-.hero__card-inner {
+.hero__media {
   position: absolute;
   inset: 0;
-  overflow: hidden;
-  background: #0b1a22;
-  box-shadow: 0 40px 120px -40px rgb(0 0 0 / 0.45);
+  will-change: transform;
 }
-.hero__card-inner img,
-.hero__card-inner video {
+.hero__media img,
+.hero__media video {
   width: 100%;
   height: 100%;
   object-fit: cover;
 }
 /* на вертикальных экранах обложка не обрезается, поля заливаются цветом кейса */
 @media (max-aspect-ratio: 1/1) {
-  .hero__card-inner {
-    background: var(--bg);
-  }
-  .hero__card-inner img,
-  .hero__card-inner video {
+  .hero__media img,
+  .hero__media video {
     object-fit: contain;
   }
 }
-.hero__hint {
-  position: absolute;
-  left: 50%;
-  bottom: 96px;
-  translate: -50% 0;
-  z-index: 4;
-  font-size: 13px;
-  color: var(--ink);
-  opacity: calc(1 - var(--p) * 6);
-  display: flex;
-  align-items: center;
-  gap: 8px;
+
+/* появление при загрузке */
+.intro {
+  animation: intro-up 1s var(--ease) both;
+  animation-delay: var(--d, 0ms);
 }
-.hero__hint span {
-  width: 1px;
-  height: 28px;
-  background: currentColor;
-  animation: hint 1.8s var(--ease) infinite;
-  transform-origin: top;
+.intro-card {
+  animation: intro-card 1.3s var(--ease) 0.15s both;
 }
-@keyframes hint {
-  0% { transform: scaleY(0); }
-  50% { transform: scaleY(1); transform-origin: top; }
-  51% { transform-origin: bottom; }
-  100% { transform: scaleY(0); transform-origin: bottom; }
+@keyframes intro-up {
+  from {
+    opacity: 0;
+    transform: translateY(24px);
+  }
+}
+@keyframes intro-card {
+  from {
+    opacity: 0;
+    transform: translateY(12svh);
+  }
 }
 
-/* упрощённый hero для prefers-reduced-motion */
-.hero--static {
-  height: auto;
-}
-.hero--static .hero__sticky {
-  position: relative;
-  height: auto;
-  background: var(--bg);
-  padding-bottom: 64px;
-}
-.hero--static .hero__waves,
-.hero--static .hero__hint {
-  display: none;
-}
-.hero--static .hero__text {
-  position: relative;
-  top: 0;
-  padding-top: 96px;
-  color: #fff;
-}
-.hero--static .hero__card {
-  position: relative;
-  inset: auto;
-  transform: none !important;
-  max-width: var(--container);
-  margin: 48px auto 0;
-  padding-inline: var(--gutter);
-  aspect-ratio: 16 / 9;
-}
-.hero--static .hero__card-inner {
-  position: relative;
-  height: 100%;
-  border-radius: var(--radius-media) !important;
+@media (prefers-reduced-motion: reduce) {
+  .intro,
+  .intro-card {
+    animation: none;
+  }
 }
 
 /* ═════════════════════ ТЕЛО КЕЙСА ═════════════════════ */
@@ -448,21 +437,25 @@ a {
   object-fit: contain;
 }
 
-/* появление при скролле */
-.reveal {
-  opacity: 0;
-  transform: translateY(40px) scale(0.985);
-  transition: opacity 0.9s var(--ease), transform 1.1s var(--ease);
+/* появление при скролле — чистый CSS (scroll-driven animations): работает в потоке
+   композитора, не зависит от JS. В браузерах без поддержки блоки просто видны сразу. */
+@supports (animation-timeline: view()) {
+  @media (prefers-reduced-motion: no-preference) {
+    .reveal {
+      animation: reveal-in linear both;
+      animation-timeline: view();
+      animation-range: entry 0% entry 70%;
+    }
+  }
 }
-.reveal.is-in {
-  opacity: 1;
-  transform: none;
-}
-@media (prefers-reduced-motion: reduce) {
-  .reveal {
+@keyframes reveal-in {
+  from {
+    opacity: 0;
+    transform: translateY(72px) scale(0.96);
+  }
+  to {
     opacity: 1;
     transform: none;
-    transition: none;
   }
 }
 
@@ -778,23 +771,30 @@ a {
 .footer {
   position: relative;
   overflow: hidden;
-  padding: 135px var(--gutter) 160px;
+  padding: 135px var(--gutter) 150px;
   color: #fff;
-  --fp: 0;
+  isolation: isolate;
 }
 .footer__waves {
   position: absolute;
   inset: 0;
-  z-index: 0;
+  z-index: -1;
   pointer-events: none;
 }
 .footer__wave {
   position: absolute;
-  left: -30vw;
-  width: 160vw;
-  height: 130%;
-  border-radius: 50%;
+  top: 0;
+  left: -25vw;
+  width: 150vw;
+  height: 190%;
   will-change: transform;
+  background: radial-gradient(
+    closest-side,
+    var(--c) 0%,
+    var(--c) 74%,
+    color-mix(in oklab, var(--c) 50%, transparent) 88%,
+    transparent 100%
+  );
 }
 .footer__inner {
   position: relative;
@@ -806,7 +806,7 @@ a {
 .footer__lead {
   margin: 0;
   font-size: 20px;
-  color: var(--ink);
+  color: rgb(255 255 255 / 0.75);
 }
 .footer__links {
   display: flex;
@@ -816,21 +816,21 @@ a {
   margin-top: 12px;
 }
 .footer__links a {
-  font-size: clamp(32px, 4vw, 48px);
-  line-height: 1.4;
+  font-size: clamp(32px, 3.1vw, 44px);
+  line-height: 1.5;
   font-weight: 540;
-  color: var(--ink);
-  background: linear-gradient(currentColor, currentColor) 0 92% / 0 2px no-repeat;
+  color: #fff;
+  background: linear-gradient(currentColor, currentColor) 0 90% / 0 2px no-repeat;
   transition: background-size 0.5s var(--ease);
 }
 .footer__links a:hover {
   background-size: 100% 2px;
 }
 .footer__logo {
-  margin-top: clamp(72px, 9vw, 120px);
-  width: min(960px, 100%);
-  height: clamp(160px, 26vw, 340px);
-  color: var(--accent);
+  margin-top: clamp(64px, 8vw, 110px);
+  width: min(980px, 100%);
+  height: clamp(150px, 24vw, 330px);
+  color: #fff;
 }
 .footer__meta {
   display: flex;

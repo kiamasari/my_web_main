@@ -29,8 +29,8 @@ export const spot: CaseStudy = {
     onAccent: "#0E5E86",
     heroBg: "#F3F3F1",
     ink: "#13212B",
-    heroWaves: ["#F2EBC3", "#CFE7F1", "#7FC3E4", "#178EC6"],
-    footerWaves: ["#F2EBC3", "#9FD1E8", "#178EC6", "#0E5E86", "#0A1E2A"],
+    heroWaves: ["#F2EBC3", "#BFE0EE", "#178EC6", "#0E5E86", "#178EC6"],
+    footerWaves: ["#6DB9E0", "#F2EBC3", "#0E5E86", "#082636", "#04090D"],
   },
 
   sections: [

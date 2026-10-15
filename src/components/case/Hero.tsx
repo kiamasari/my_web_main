@@ -1,9 +1,9 @@
 "use client";
 
 import Image from "next/image";
-import { useRef } from "react";
+import { useEffect, useRef } from "react";
 import type { ResolvedItem } from "@/lib/media";
-import { clamp, easeInOut, usePrefersReducedMotion, useScrollFrame } from "./hooks";
+import { clamp, docTop, easeInOut, easeInOutQuad, lerp, subscribe } from "@/lib/ticker";
 import { MediaBox } from "./Media";
 
 type Props = {
@@ -14,68 +14,84 @@ type Props = {
   waves: string[];
 };
 
+/** Где лежат верхние края «волн» в начале (доля высоты экрана) — они сразу дают мягкий градиент */
+const WAVE_START = [0.26, 0.42, 0.52, 0.66, 0.76];
+
 /**
- * Hero на 2 экрана: снизу поднимаются эллипсы и перекрашивают фон в цвет бренда,
- * а карточка с обложкой вырастает до полного экрана.
+ * Hero на 2 экрана.
+ *  • Фон: мягкие эллипсы-градиенты выглядывают снизу и по мере скролла заливают экран цветом бренда.
+ *  • Обложка: из карточки 16:9 под заголовком вырастает во весь экран.
+ *    Ширина и высота анимируются раздельно через scale(x, y) с обратным масштабом картинки —
+ *    это только transform, без пересчёта layout и перерисовки.
  */
 export function Hero({ title, subtitle, tags, hero, waves }: Props) {
   const rootRef = useRef<HTMLElement>(null);
   const stickyRef = useRef<HTMLDivElement>(null);
   const cardRef = useRef<HTMLDivElement>(null);
-  const innerRef = useRef<HTMLDivElement>(null);
+  const mediaRef = useRef<HTMLDivElement>(null);
   const textRef = useRef<HTMLDivElement>(null);
   const waveRefs = useRef<(HTMLSpanElement | null)[]>([]);
-  const reduced = usePrefersReducedMotion();
 
-  useScrollFrame(() => {
-    const root = rootRef.current;
-    const sticky = stickyRef.current;
-    const card = cardRef.current;
-    const inner = innerRef.current;
-    const text = textRef.current;
-    if (!root || !sticky || !card || !inner || !text || reduced) return;
+  useEffect(() => {
+    const root = rootRef.current!;
+    const sticky = stickyRef.current!;
+    const card = cardRef.current!;
+    const media = mediaRef.current!;
+    const text = textRef.current!;
+    let top = 0,
+      range = 1,
+      textBottom = 0;
+    let last = -1;
 
-    const vh = window.innerHeight;
-    const vw = document.documentElement.clientWidth;
-    const rect = root.getBoundingClientRect();
-    const p = clamp(-rect.top / (rect.height - vh));
-    sticky.style.setProperty("--p", p.toFixed(4));
+    return subscribe({
+      measure: (f) => {
+        top = docTop(root);
+        range = Math.max(1, root.offsetHeight - f.vh);
+        textBottom = text.offsetTop + text.offsetHeight;
+        last = -1;
+      },
+      render: ({ y, vw, vh }) => {
+        const p = clamp((y - top) / range);
+        if (p === last) return;
+        last = p;
 
-    // Эллипсы: в покое выглядывают снизу размытым свечением, потом по очереди накрывают экран
-    const n = waveRefs.current.length;
-    waveRefs.current.forEach((el, i) => {
-      if (!el) return;
-      const local = easeInOut(clamp((p - i * 0.05) / 0.38));
-      const startY = vh * (0.86 + i * 0.05);
-      const endY = -vh * 0.3;
-      const y = startY + (endY - startY) * local;
-      const blur = (1 - local) * 48;
-      el.style.transform = `translate3d(0, ${y.toFixed(1)}px, 0)`;
-      el.style.setProperty("--blur", `${blur.toFixed(1)}px`);
-      el.style.zIndex = String(i + 1);
-      if (i === n - 1) el.style.opacity = String(clamp(local * 3));
+        // ── волны ──
+        waveRefs.current.forEach((el, i) => {
+          if (!el) return;
+          const k = easeInOutQuad(clamp((p - i * 0.045) / 0.62));
+          const start = (WAVE_START[i] ?? 0.3 + i * 0.12) * vh;
+          const end = -0.45 * vh + i * 0.04 * vh;
+          el.style.transform = `translate3d(0,${lerp(start, end, k).toFixed(1)}px,0)`;
+        });
+
+        // ── фон и цвет текста ──
+        sticky.style.setProperty("--bgk", clamp((p - 0.28) / 0.3).toFixed(3));
+        sticky.style.setProperty("--t", clamp((p - 0.16) / 0.2).toFixed(3));
+
+        // ── обложка ──
+        const gutter = vw < 640 ? 16 : 24;
+        const w0 = Math.min(1100, vw - gutter * 2);
+        const h0 = (w0 * 9) / 16;
+        const y0 = Math.max(textBottom + 36, vh * 0.6);
+        const c = easeInOut(clamp((p - 0.04) / 0.84));
+        const W = lerp(w0, vw, c);
+        const H = lerp(h0, vh, c);
+        const sx = W / vw;
+        const sy = H / vh;
+        const ty = lerp(y0, 0, c);
+        const r = 22 * (1 - clamp((c - 0.82) / 0.18));
+        card.style.transform = `translate3d(0,${ty.toFixed(1)}px,0) scale(${sx.toFixed(4)},${sy.toFixed(4)})`;
+        // эллиптический радиус компенсирует неравномерный scale — углы остаются круглыми
+        card.style.borderRadius = `${(r / sx).toFixed(2)}px / ${(r / sy).toFixed(2)}px`;
+        // картинка: снимаем искажение и масштабируем «cover» под видимый размер карточки
+        const m = Math.max(sx, sy);
+        media.style.transform = `scale(${(m / sx).toFixed(4)},${(m / sy).toFixed(4)})`;
+      },
     });
-
-    // Перекраска текста, когда волны дошли до него
-    sticky.style.setProperty("--t", clamp((p - 0.12) / 0.18).toFixed(3));
-
-    // Карточка: из блока под текстом → во весь экран
-    const textBottom = text.offsetTop + text.offsetHeight;
-    const gutter = vw < 640 ? 16 : 24;
-    const maxW = Math.min(1232, vw - gutter * 2);
-    const s0 = maxW / vw;
-    const y0 = Math.max(textBottom + 40, vh * 0.55);
-    const c = easeInOut(clamp((p - 0.1) / 0.85));
-    const s = s0 + (1 - s0) * c;
-    const y = y0 * (1 - c);
-    card.style.transform = `translate3d(0, ${y.toFixed(1)}px, 0) scale(${s.toFixed(4)})`;
-    // радиус визуально постоянный (компенсируем scale), в конце уходит в 0
-    const r = (22 * (1 - clamp((c - 0.85) / 0.15))) / s;
-    inner.style.borderRadius = `${r.toFixed(2)}px`;
-  }, [reduced]);
+  }, []);
 
   return (
-    <section ref={rootRef} className={`hero ${reduced ? "hero--static" : ""}`} aria-label={title}>
+    <section ref={rootRef} className="hero" aria-label={title}>
       <div ref={stickyRef} className="hero__sticky">
         <div className="hero__waves" aria-hidden="true">
           {waves.map((color, i) => (
@@ -85,33 +101,44 @@ export function Hero({ title, subtitle, tags, hero, waves }: Props) {
                 waveRefs.current[i] = el;
               }}
               className="hero__wave"
-              style={{ background: color, transform: "translate3d(0,100svh,0)" }}
+              style={
+                {
+                  "--c": color,
+                  transform: `translate3d(0,${(WAVE_START[i] ?? 0.5) * 100}svh,0)`,
+                  zIndex: i + 1,
+                } as React.CSSProperties
+              }
             />
           ))}
         </div>
 
         <div ref={textRef} className="hero__text">
-          <h1 className="hero__title">{title}</h1>
-          <p className="hero__subtitle">{subtitle}</p>
-          <ul className="hero__tags">
+          <h1 className="hero__title intro" style={{ "--d": "0ms" } as React.CSSProperties}>
+            {title}
+          </h1>
+          <p className="hero__subtitle intro" style={{ "--d": "90ms" } as React.CSSProperties}>
+            {subtitle}
+          </p>
+          <ul className="hero__tags intro" style={{ "--d": "180ms" } as React.CSSProperties}>
             {tags.map((t) => (
               <li key={t}>{t}</li>
             ))}
           </ul>
         </div>
 
-        <div ref={cardRef} className="hero__card" style={{ transform: "translate3d(0,60svh,0) scale(.85)" }}>
-          <div ref={innerRef} className="hero__card-inner" style={{ borderRadius: 22 }}>
-            {hero.type === "image" && hero.src ? (
-              <Image src={hero.src} alt={hero.alt} fill priority sizes="100vw" />
-            ) : hero.type === "video" && hero.src ? (
-              <video src={hero.src} autoPlay muted loop playsInline aria-label={hero.alt} />
-            ) : (
-              <MediaBox item={{ ...hero, ratio: "auto" }} reveal={false} className="media--fill" />
-            )}
+        <div className="hero__card-wrap intro-card">
+          <div ref={cardRef} className="hero__card">
+            <div ref={mediaRef} className="hero__media">
+              {hero.type === "image" && hero.src ? (
+                <Image src={hero.src} alt={hero.alt} fill priority sizes="100vw" />
+              ) : hero.type === "video" && hero.src ? (
+                <video src={hero.src} autoPlay muted loop playsInline aria-label={hero.alt} />
+              ) : (
+                <MediaBox item={{ ...hero, ratio: "auto" }} reveal={false} className="media--fill" />
+              )}
+            </div>
           </div>
         </div>
-
       </div>
     </section>
   );

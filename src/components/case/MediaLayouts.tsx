@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { ResolvedMedia } from "@/lib/media";
-import { clamp, useReveal, useScrollFrame } from "./hooks";
+import { clamp, docTop, subscribe } from "@/lib/ticker";
 import { MediaBox } from "./Media";
 
 const HALF = "(min-width:1024px) 420px, 50vw";
@@ -45,9 +45,8 @@ export function MediaLayout({ media }: { media: ResolvedMedia }) {
 
 /* ── доска с направляющими ── */
 function Board({ children }: { children: React.ReactNode }) {
-  const ref = useReveal<HTMLDivElement>();
   return (
-    <div ref={ref} className="board reveal">
+    <div className="board reveal">
       <i className="board__line board__line--h" style={{ top: "30%" }} />
       <i className="board__line board__line--h" style={{ top: "70%" }} />
       <i className="board__line board__line--v" style={{ left: "12%" }} />
@@ -164,17 +163,25 @@ function Overlay({ media }: { media: Extract<ResolvedMedia, { kind: "overlay" }>
   const a = useRef<HTMLDivElement>(null);
   const b = useRef<HTMLDivElement>(null);
 
-  useScrollFrame(() => {
-    const el = root.current;
-    if (!el || !a.current || !b.current) return;
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-    const r = el.getBoundingClientRect();
-    const vh = window.innerHeight;
-    // -1 … 1 пока блок проходит через экран
-    const k = clamp((vh - r.top) / (vh + r.height)) * 2 - 1;
-    a.current.style.transform = `translate3d(0, ${(-k * 40).toFixed(1)}px, 0)`;
-    b.current.style.transform = `translate3d(0, ${(k * 56).toFixed(1)}px, 0)`;
-  });
+  useEffect(() => {
+    const el = root.current!;
+    let top = 0,
+      h = 1;
+    return subscribe({
+      measure: () => {
+        top = docTop(el);
+        h = el.offsetHeight;
+      },
+      render: ({ y, vh }) => {
+        if (!a.current || !b.current) return;
+        const k = clamp((y + vh - top) / (vh + h)) * 2 - 1; // -1…1 пока блок проходит экран
+        if (Math.abs(k) >= 1 && a.current.dataset.k === String(Math.sign(k))) return;
+        a.current.dataset.k = String(Math.sign(k));
+        a.current.style.transform = `translate3d(0,${(-k * 48).toFixed(1)}px,0)`;
+        b.current.style.transform = `translate3d(0,${(k * 64).toFixed(1)}px,0)`;
+      },
+    });
+  }, []);
 
   return (
     <div ref={root} className="overlay">
@@ -200,11 +207,10 @@ function readableOn(hex: string) {
 }
 
 function Palette({ media }: { media: Extract<ResolvedMedia, { kind: "palette" }> }) {
-  const ref = useReveal<HTMLDivElement>();
   return (
     <div className="palette">
       {media.colors.map((c) => (
-        <div key={c.hex} className="swatch reveal is-in" style={{ background: c.hex, color: readableOn(c.hex) }}>
+        <div key={c.hex} className="swatch reveal" style={{ background: c.hex, color: readableOn(c.hex) }}>
           <span className="swatch__name font-hand">{c.name}</span>
           <div>
             <div className="swatch__hex">{c.hex.toUpperCase()}</div>
@@ -212,7 +218,7 @@ function Palette({ media }: { media: Extract<ResolvedMedia, { kind: "palette" }>
           </div>
         </div>
       ))}
-      <div ref={ref} className="specimen reveal">
+      <div className="specimen reveal">
         <div className="specimen__aa" aria-hidden="true">
           Аа
         </div>

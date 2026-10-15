@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { ResolvedSection } from "@/lib/media";
-import { clamp, useScrollFrame } from "./hooks";
+import { clamp, docTop, subscribe } from "@/lib/ticker";
 import { MediaLayout } from "./MediaLayouts";
 import { RichText } from "./RichText";
 
@@ -32,15 +32,25 @@ export function CaseBody({ sections }: { sections: ResolvedSection[] }) {
     return () => io.disconnect();
   }, [sections.length]);
 
-  // Полоска прогресса в активной карточке
-  useScrollFrame(() => {
-    const el = sectionRefs.current[active];
-    const bar = progressRefs.current[active];
-    if (!el || !bar) return;
-    const r = el.getBoundingClientRect();
-    const mid = window.innerHeight / 2;
-    bar.style.setProperty("--sp", clamp((mid - r.top) / r.height).toFixed(3));
-  }, [active]);
+  // Полоска прогресса в активной карточке (позиции секций кешируются, в кадре только запись стилей)
+  const activeRef = useRef(0);
+  activeRef.current = active;
+  useEffect(() => {
+    let tops: number[] = [];
+    let heights: number[] = [];
+    return subscribe({
+      measure: () => {
+        tops = sectionRefs.current.map((el) => (el ? docTop(el) : 0));
+        heights = sectionRefs.current.map((el) => el?.offsetHeight ?? 1);
+      },
+      render: ({ y, vh }) => {
+        const i = activeRef.current;
+        const bar = progressRefs.current[i];
+        if (!bar) return;
+        bar.style.setProperty("--sp", clamp((y + vh / 2 - tops[i]) / heights[i]).toFixed(3));
+      },
+    });
+  }, [sections.length]);
 
   const go = (i: number) => {
     const el = sectionRefs.current[i];

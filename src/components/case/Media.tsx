@@ -2,7 +2,6 @@
 
 import Image from "next/image";
 import type { ResolvedItem } from "@/lib/media";
-import { useReveal } from "./hooks";
 
 type Props = {
   item: ResolvedItem;
@@ -16,10 +15,8 @@ type Props = {
 
 /** Картинка / видео / заглушка в контейнере с нужными пропорциями */
 export function MediaBox({ item, sizes = "(min-width:1024px) 844px, 100vw", className = "", contain, priority, reveal = true }: Props) {
-  const ref = useReveal<HTMLDivElement>(reveal);
   return (
     <div
-      ref={ref}
       className={`media ${contain ? "media--contain" : ""} ${reveal ? "reveal" : ""} ${className}`}
       style={{ aspectRatio: item.ratio }}
     >

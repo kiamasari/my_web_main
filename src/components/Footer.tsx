@@ -1,37 +1,50 @@
 "use client";
 
-import { useRef } from "react";
+import { useEffect, useRef } from "react";
 import { site } from "@/content/site";
 import { AsciiLogo } from "./AsciiLogo";
-import { clamp, easeOut, useScrollFrame } from "./case/hooks";
+import { clamp, docTop, easeOut, subscribe } from "@/lib/ticker";
 
-/** Футер: эллипсы поднимаются при доскролле, сверху ссылки, ниже вращающийся ASCII-логотип и контакты */
+/**
+ * Футер: мягкие эллипсы-градиенты поднимаются при доскролле и уводят фон из цвета бренда
+ * в тёмный. Последний (тёмный) слой ложится прямо над логотипом, поэтому
+ * ASCII-логотип и контакты всегда на тёмном.
+ */
 export function Footer({ waves }: { waves: string[] }) {
   const root = useRef<HTMLElement>(null);
+  const logoRef = useRef<HTMLDivElement>(null);
   const refs = useRef<(HTMLSpanElement | null)[]>([]);
 
-  const logoRef = useRef<HTMLDivElement>(null);
-
-  // Эллипсы выстраиваются «лесенкой» так, чтобы последний (самый тёмный) лёг
-  // прямо над логотипом — тогда логотип и контакты всегда на тёмном фоне.
-  useScrollFrame(() => {
-    const el = root.current;
-    const logo = logoRef.current;
-    if (!el || !logo) return;
-    const r = el.getBoundingClientRect();
-    const vh = window.innerHeight;
-    const p = easeOut(clamp((vh - r.top) / Math.min(r.height, vh)));
-    const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    const n = refs.current.length;
-    const darkTop = logo.getBoundingClientRect().top - r.top - 48;
-    const step = Math.min(90, Math.max(40, darkTop / (n + 1)));
-    refs.current.forEach((w, i) => {
-      if (!w) return;
-      const base = darkTop - (n - 1 - i) * step;
-      const lift = reduced ? 0 : (1 - p) * (160 + i * 50);
-      w.style.transform = `translate3d(0, ${(base + lift).toFixed(1)}px, 0)`;
+  useEffect(() => {
+    const el = root.current!;
+    const logo = logoRef.current!;
+    let top = 0,
+      h = 1,
+      darkTop = 0;
+    let last = -1;
+    return subscribe({
+      measure: () => {
+        top = docTop(el);
+        h = el.offsetHeight;
+        darkTop = docTop(logo) - top - 40;
+        last = -1;
+      },
+      render: ({ y, vh }) => {
+        // 0 — футер только показался снизу, 1 — докрутили до конца
+        const p = easeOut(clamp((y + vh - top) / Math.min(h, vh)));
+        if (p === last) return;
+        last = p;
+        const n = refs.current.length;
+        const step = Math.max(36, Math.min(110, darkTop / (n + 0.5)));
+        refs.current.forEach((w, i) => {
+          if (!w) return;
+          const base = darkTop - (n - 1 - i) * step;
+          const lift = (1 - p) * (220 + i * 60);
+          w.style.transform = `translate3d(0,${(base + lift).toFixed(1)}px,0)`;
+        });
+      },
     });
-  });
+  }, []);
 
   return (
     <footer ref={root} className="footer" id="contact">
@@ -43,7 +56,7 @@ export function Footer({ waves }: { waves: string[] }) {
               refs.current[i] = el;
             }}
             className="footer__wave"
-            style={{ background: c, transform: "translate3d(0, 100%, 0)" }}
+            style={{ "--c": c, transform: "translate3d(0,100%,0)", zIndex: i + 1 } as React.CSSProperties}
           />
         ))}
       </div>
