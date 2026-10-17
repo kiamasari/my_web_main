@@ -26,17 +26,17 @@ export type ResolvedMedia =
       item?: ResolvedItem;
     };
 
-/** Ищет файл в /public/work/<slug>/ с любым поддерживаемым расширением (во время сборки) */
-export function resolveItem(slug: string, item: MediaItem): ResolvedItem {
-  const dir = path.join(process.cwd(), "public", "work", slug);
+/** Ищет файл в /public/<folder>/ с любым поддерживаемым расширением (на сервере) */
+export function resolveIn(folder: string, item: MediaItem): ResolvedItem {
+  const dir = path.join(process.cwd(), "public", folder);
   for (const ext of [...IMAGE_EXT, ...VIDEO_EXT]) {
     const file = `${item.file}.${ext}`;
     if (fs.existsSync(path.join(dir, file))) {
       return {
         ...item,
-        src: `/work/${slug}/${file}`,
+        src: `/${folder}/${file}`,
         type: VIDEO_EXT.includes(ext) ? "video" : "image",
-        expected: `public/work/${slug}/${file}`,
+        expected: `public/${folder}/${file}`,
       };
     }
   }
@@ -44,8 +44,13 @@ export function resolveItem(slug: string, item: MediaItem): ResolvedItem {
     ...item,
     src: null,
     type: "placeholder",
-    expected: `public/work/${slug}/${item.file}.webp`,
+    expected: `public/${folder}/${item.file}.webp`,
   };
+}
+
+/** Ищет файл в /public/work/<slug>/ */
+export function resolveItem(slug: string, item: MediaItem): ResolvedItem {
+  return resolveIn(`work/${slug}`, item);
 }
 
 function resolveMedia(slug: string, m: Media): ResolvedMedia {

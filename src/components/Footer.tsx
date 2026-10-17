@@ -10,7 +10,7 @@ import { clamp, docTop, easeOut, subscribe } from "@/lib/ticker";
  * в тёмный. Последний (тёмный) слой ложится прямо над логотипом, поэтому
  * ASCII-логотип и контакты всегда на тёмном.
  */
-export function Footer({ waves }: { waves: string[] }) {
+export function Footer({ waves, tone = "dark" }: { waves: string[]; tone?: "dark" | "light" }) {
   const root = useRef<HTMLElement>(null);
   const logoRef = useRef<HTMLDivElement>(null);
   const refs = useRef<(HTMLSpanElement | null)[]>([]);
@@ -47,7 +47,7 @@ export function Footer({ waves }: { waves: string[] }) {
   }, []);
 
   return (
-    <footer ref={root} className="footer" id="contact">
+    <footer ref={root} className={`footer ${tone === "light" ? "footer--light" : ""}`} id="contact">
       <div className="footer__waves" aria-hidden="true">
         {waves.map((c, i) => (
           <span

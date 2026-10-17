@@ -842,6 +842,13 @@ a {
   font-weight: 540;
   color: rgb(255 255 255 / 0.7);
 }
+/* светлый вариант: футер начинается на белом фоне (главная) */
+.footer--light .footer__lead {
+  color: color-mix(in oklab, var(--ink) 70%, transparent);
+}
+.footer--light .footer__links a {
+  color: var(--ink);
+}
 .footer__meta span:last-child {
   color: rgb(255 255 255 / 0.45);
 }
@@ -891,46 +898,6 @@ a {
 }
 .dock__contact:hover {
   transform: scale(1.04);
-}
-
-/* ═════════════════════ ГЛАВНАЯ (список кейсов) ═════════════════════ */
-.home {
-  max-width: var(--container);
-  margin: 0 auto;
-  padding: 120px var(--gutter) 160px;
-}
-.home__title {
-  margin: 0;
-  font-size: clamp(56px, 9vw, 128px);
-  line-height: 0.9;
-  font-weight: 700;
-  letter-spacing: -0.02em;
-}
-.home__grid {
-  margin-top: 72px;
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(min(100%, 420px), 1fr));
-  gap: 24px;
-}
-.home__card {
-  display: block;
-}
-.home__card .media {
-  transition: transform 0.6s var(--ease);
-}
-.home__card:hover .media {
-  transform: scale(0.985);
-}
-.home__card h2 {
-  margin: 16px 0 4px;
-  font-size: 28px;
-  font-weight: 700;
-}
-.home__card p {
-  margin: 0;
-  color: var(--muted);
-  font-weight: 540;
-  line-height: 1.5;
 }
 
 .media--fill {
